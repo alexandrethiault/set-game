@@ -1,9 +1,11 @@
 import pygame
-from network import Network
+import socket
 import os
 
-pygame.font.init()
+from network import Network
 
+
+pygame.font.init()
 width = 600
 height = 600
 win = pygame.display.set_mode((width, height))
@@ -96,7 +98,8 @@ def main():
     clock = pygame.time.Clock()
     try:
         n = Network()
-    except:
+    except (AssertionError, socket.error) as e:
+        print(e)
         return 1
     player = int(n.player_number)
     print("You are player", player)
@@ -111,33 +114,34 @@ def main():
             refused if it appears the copy didn't register another player's attack that came
             before.
             """
-        except:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return 3
+
+                if event.type == pygame.KEYUP:
+                    if event.key == pygame.K_SPACE:
+                        game = n.send("att") # attempt attack
+                    elif event.key in (pygame.K_BACKSPACE, pygame.K_RETURN, pygame.K_5, pygame.K_KP5, pygame.K_p, pygame.K_LEFTPAREN):
+                        game = n.send("mor")
+                    elif event.key == pygame.K_ESCAPE:
+                        n.send("esc")
+                        print("Game interrupted by ESC key press")
+                        return 0
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    pos = pygame.mouse.get_pos()
+                    for i in range(3):
+                        for j in range(6):
+                            card = cards[i][j]
+                            if card.click(pos) and game.ready:
+                                n.send(f"{i},{j}") # ne marche que si c'est ce client qui attaque
+            if run:
+                redrawWindow(game, player)
+        except socket.error as e:
             run = False
+            print(e)
             print("Couldn't get game")
-            break
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-                pygame.quit()
-
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_SPACE:
-                    game = n.send("att") # attempt attack
-                elif event.key in (pygame.K_BACKSPACE, pygame.K_RETURN, pygame.K_5, pygame.K_p, pygame.K_LEFTPAREN):
-                    game = n.send("mor")
-                elif event.key == pygame.K_ESCAPE:
-                    game = n.send("esc")
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
-                for i in range(3):
-                    for j in range(6):
-                        card = cards[i][j]
-                        if card.click(pos) and game.ready:
-                            n.send(f"{i},{j}") # ne marche que si c'est ce client qui attaque
-
-        redrawWindow(game, player)
-    return 0
+    return 2
 
 def menu_screen(code):
     run = True
@@ -147,17 +151,20 @@ def menu_screen(code):
     while run:
         clock.tick(60)
         win.fill((128, 128, 128))
+        text = ""
         if code==0:
             text = "Cliquer pour\nse connecter !"
-        else:
+        elif code==1:
             text = "La connexion\na écoué...\nCliquer pour\nretenter de\nse connecter."
+        elif code==2:
+            text = "La connexion a\nété perdue...\nCliquer pour\nretenter de\nse connecter."
         message_display(text, 60, color=(255, 0, 0))
         pygame.display.update()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                run = False
+                return 3
             if event.type == pygame.MOUSEBUTTONDOWN:
                 win.fill((128, 128, 128))
                 text = "Tentative de\n connexion..."
@@ -165,8 +172,16 @@ def menu_screen(code):
                 pygame.display.update()
                 run = False
 
+    pygame.time.delay(500)
     return main()
 
 _code = 0
-while True:
+"""
+0: Game ended correctly 
+1: Player couldn't connect to a game
+2: Player got disconnected while a game had started
+3: Player closed the window so the execution must stop 
+"""
+while _code != 3:
     _code = menu_screen(_code)
+    print("\ncode:", _code)

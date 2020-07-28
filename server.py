@@ -1,8 +1,10 @@
 import socket
 from _thread import *
 import pickle
-from game import Game
 import time
+
+from game import Game
+
 
 server = ""
 port = 5555
@@ -17,7 +19,6 @@ except socket.error as e:
 s.listen(4)
 print("Server started, waiting for connections")
 
-connected = set()
 games = {}
 id_count = 0
 
@@ -30,7 +31,7 @@ def threaded_client(conn, player_number, game_id):
         try:
             data = conn.recv(2048*16).decode()
 
-            if game_id not in games or not data:
+            if (game_id not in games) or (not data) or (game_id + 10 <= id_count//4 and len(games)>10):
                 break
             game = games[game_id]
             if game.ongoing_attack and time.time() - game.attack_time > 3:
@@ -43,6 +44,7 @@ def threaded_client(conn, player_number, game_id):
             elif data == "mor":
                 game.cast_vote(player_number)
             elif data == "esc":
+                conn.sendall(pickle.dumps(game))
                 break
             elif data != "get":
                 if game.ongoing_attack and game.attacking_player == player_number:
@@ -66,18 +68,22 @@ def threaded_client(conn, player_number, game_id):
         pass
 
 
+def main():
+    global id_count
 
-while True:
-    conn, addr = s.accept()
+    while True:
+        conn, addr = s.accept()
 
-    player_number = id_count % 4 + 1
-    game_id = id_count // 4
-    if id_count % 4 == 0:
-        games[game_id] = Game(game_id)
-        print(f"Creating Game {game_id}")
-    else:
-        games[game_id].add_player()
-    print(f"Connected to {addr} as Game {game_id} - Player {player_number}")
-    id_count += 1
+        player_number = id_count % 4 + 1
+        game_id = id_count // 4
+        if id_count % 4 == 0:
+            games[game_id] = Game(game_id)
+            print(f"Creating Game {game_id}")
+        else:
+            games[game_id].add_player()
+        print(f"Connected to {addr} as Game {game_id} - Player {player_number}")
+        id_count += 1
 
-    start_new_thread(threaded_client, (conn, player_number, game_id))
+        start_new_thread(threaded_client, (conn, player_number, game_id))
+
+main()

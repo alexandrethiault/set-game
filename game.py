@@ -1,7 +1,7 @@
 import time
 import random
 
-# Jeu Set!
+
 class Game:
     def __init__(self, _id):
         self.ready = False
@@ -95,14 +95,6 @@ class Game:
         self.selected_ij.append((i,j))
         self.selected_set.append(self.cards_abcds[i][j])
 
-    def winners(self):
-        scores = [self.sets[i]-self.penalties[i] for i in range(5)]
-        maxscores = max(scores)
-        return [i for i in range(1, 5) if scores[i] == maxscores]
-
-    def end_game(self):
-        print("winners:", self.winners())
-
     def stop_attack(self):
         self.ongoing_attack = False
         self.attack_just_ended = True
@@ -134,3 +126,11 @@ class Game:
         self.attacking_player = 0
         self.attack_time = 0
         self.attack_success = False
+
+    def winners(self):
+        scores = [self.sets[i]-self.penalties[i] for i in range(5)]
+        maxscores = max(scores)
+        return [i for i in range(1, 5) if scores[i] == maxscores]
+
+    def end_game(self):
+        print("winners:", self.winners())
