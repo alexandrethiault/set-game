@@ -15,7 +15,7 @@ except socket.error as e:
     str(e)
 
 s.listen(4)
-print("Waiting for a connection, Server Started")
+print("Server started, waiting for connections")
 
 connected = set()
 games = {}
@@ -42,38 +42,42 @@ def threaded_client(conn, player_number, game_id):
                 game.attempt_attack(player_number)
             elif data == "mor":
                 game.cast_vote(player_number)
+            elif data == "esc":
+                break
             elif data != "get":
-                game.attack_click(data)
+                if game.ongoing_attack and game.attacking_player == player_number:
+                    game.attack_click(data)
 
-            game.time = time.time()
+            game.update_time()
             conn.sendall(pickle.dumps(game))
         except:
             break
 
-    print("Lost connection")
+    print(f"Lost connection to Game {game_id} - Player {player_number}")
     try:
-        print("Closing Game", game_id)
-        del games[game_id]
-    except KeyError:
+        game.remove_player(player_number)
+        if game.no_one_left():
+            print(f"Closing Game {game_id}")
+            del games[game_id]
+            conn.close()
+            if game_id == id_count // 4:
+                id_count = game_id * 4 + 4
+    except (UnboundLocalError, KeyError):
         pass
-    id_count -= 1
-    conn.close()
 
 
 
 while True:
     conn, addr = s.accept()
-    print("Connected to:", addr)
 
-    id_count += 1
-    player_number = (id_count-1) % 4 + 1
-    game_id = (id_count - 1) // 4
-    if id_count % 4 == 1:
+    player_number = id_count % 4 + 1
+    game_id = id_count // 4
+    if id_count % 4 == 0:
         games[game_id] = Game(game_id)
-        print("Creating a new game...")
+        print(f"Creating Game {game_id}")
     else:
-        games[game_id].ready = True
-        games[game_id].players += 1
-
+        games[game_id].add_player()
+    print(f"Connected to {addr} as Game {game_id} - Player {player_number}")
+    id_count += 1
 
     start_new_thread(threaded_client, (conn, player_number, game_id))

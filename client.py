@@ -1,14 +1,13 @@
 import pygame
 from network import Network
 import os
-import time
-import pickle
+
 pygame.font.init()
 
 width = 600
 height = 600
 win = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Client")
+pygame.display.set_caption("Set! (Chargement...)")
 
 images = {}
 for name in os.listdir("./images"):
@@ -35,7 +34,7 @@ class CardSlot:
         x, y = pos
         return self.x <= x <= self.x + self.width and self.y <= y <= self.y + self.height
 
-cards = [[CardSlot(50 + 80*j, 50 + 120*i) for j in range(27)] for i in range(3)]
+cards = [[CardSlot(65 + 80*((j+1)%6), 50 + 120*i) for j in range(6)] for i in range(3)]
 
 def message_display(text, size, xc=width//2, yc=height//2, color=(0,0,0)):
     lines = text.split("\n")
@@ -51,49 +50,57 @@ def message_display(text, size, xc=width//2, yc=height//2, color=(0,0,0)):
 def redrawWindow(game, player):
     win.fill((250, 243, 152))
     delay = 0
-    if not(game.connected()):
+    if not game.ready:
         message_display("En attente d'un\nadversaire...", 60)
     else:
         if game.ongoing_attack:
+            xc = width // 2 - (game.players - 1) * 60 + (game.attacking_player - 1) * 120
             remaining_time = round(3. - (game.time - game.attack_time), 1)
-            if game.attacking_player == player:
-                text=f"SET! {remaining_time}"
-            else:
-                text=f"Joueur {game.attacking_player} : SET! {remaining_time}"
+            text=f"SET! {remaining_time}"
+            message_display(text, 20, xc, yc=500, color=(0, 255,255))
         elif game.attack_just_ended:
+            xc = width // 2 - (game.players - 1) * 60 + (game.attacking_player - 1) * 120
             delay = 500
+            color = (0, 255, 0)
             if game.attack_success:
                 if game.attacking_player == player:
-                    text = "Bravo ! +1 point"
+                    text = "Bravo !\n+1 point"
                 else:
-                    text = f"1 point pour\nle joueur {game.attacking_player}..."
+                    text = f"+1 point"
             else:
+                color = (255, 0, 0)
                 if game.attacking_player == player:
-                    text = "Raté ! -1 point..."
+                    text = "Raté !\n-1 point..."
                 else:
-                    text = f"Raté ! -1 point pour\nle joueur {game.attacking_player}"
-        else:
-            text = ""
-        message_display(text, 60, yc=500, color=(0, 255,255))
+                    text = f"-1 point"
+            message_display(text, 20, xc, 500, color)
 
         for i in range(3):
-            for j in range(27):
+            for j in range(6):
                 card = cards[i][j]
                 card.abcd = game.cards_abcds[i][j]
                 card.draw()
 
+        x = width // 2 - (game.players-1) * 60
+        for i in range(1, game.players+1):
+            message_display(f"Joueur {i}", 20, x, 450, (0, 0, 0))
+            message_display(f"{game.sets[i]}", 20, x, 475, (0, 255, 0))
+            if game.penalties[i]: message_display(f" -{game.penalties[i]}", 20, x+15, 475, (255, 0, 0))
+            x += 120
+
     pygame.display.update()
     pygame.time.delay(delay)
-
-
 
 def main():
     run = True
     clock = pygame.time.Clock()
-    n = Network()
+    try:
+        n = Network()
+    except:
+        return 1
     player = int(n.player_number)
     print("You are player", player)
-
+    pygame.display.set_caption(f"Set! (Joueur {player})")
     while run:
         clock.tick(60)
         try:
@@ -117,27 +124,34 @@ def main():
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_SPACE:
                     game = n.send("att") # attempt attack
-                elif event.key in (pygame.K_BACKSPACE, pygame.K_5, pygame.K_LEFTPAREN):
+                elif event.key in (pygame.K_BACKSPACE, pygame.K_RETURN, pygame.K_5, pygame.K_p, pygame.K_LEFTPAREN):
                     game = n.send("mor")
-
-            if event.type == pygame.MOUSEBUTTONDOWN and game.attacking_player == player:
+                elif event.key == pygame.K_ESCAPE:
+                    game = n.send("esc")
+            elif event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
                 for i in range(3):
-                    for j in range(27):
+                    for j in range(6):
                         card = cards[i][j]
-                        if card.click(pos) and game.connected():
-                            n.send(f"{i},{j}")
+                        if card.click(pos) and game.ready:
+                            n.send(f"{i},{j}") # ne marche que si c'est ce client qui attaque
 
         redrawWindow(game, player)
+    return 0
 
-def menu_screen():
+def menu_screen(code):
     run = True
     clock = pygame.time.Clock()
+    pygame.display.set_caption("Set! (Non connecté)")
 
     while run:
         clock.tick(60)
         win.fill((128, 128, 128))
-        message_display("Cliquer pour\nse connecter !", 60, color=(255, 0, 0))
+        if code==0:
+            text = "Cliquer pour\nse connecter !"
+        else:
+            text = "La connexion\na écoué...\nCliquer pour\nretenter de\nse connecter."
+        message_display(text, 60, color=(255, 0, 0))
         pygame.display.update()
 
         for event in pygame.event.get():
@@ -145,9 +159,14 @@ def menu_screen():
                 pygame.quit()
                 run = False
             if event.type == pygame.MOUSEBUTTONDOWN:
+                win.fill((128, 128, 128))
+                text = "Tentative de\n connexion..."
+                message_display(text, 60, color=(255, 0, 0))
+                pygame.display.update()
                 run = False
 
-    main()
+    return main()
 
+_code = 0
 while True:
-    menu_screen()
+    _code = menu_screen(_code)

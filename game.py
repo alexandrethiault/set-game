@@ -3,9 +3,9 @@ import random
 
 # Jeu Set!
 class Game:
-    def __init__(self, id):
+    def __init__(self, _id):
         self.ready = False
-        self.id = id
+        self.id = _id
         self.sets = [0.5,0,0,0,0] # Joueur 0 gagne sur joueurs non existants
         self.penalties = [0,0,0,0,0]
         self.attack_time = 0
@@ -16,8 +16,9 @@ class Game:
         self.attacking_player = 0
         self.selected_ij = []
         self.selected_set = []
-        self.cards_abcds = [["0000" for j in range(27)] for i in range(3)]
-        self.available_abcds = [str(((10*a+b)*10+c)*10+d) for a in range(1,4) for b in range(1,4) for c in range(1,4) for d in range(1,4)]
+        self.cards_abcds = [["0000" for _ in range(6)] for _ in range(3)]
+        self.available_abcds = [str(((10*a+b)*10+c)*10+d) for a in range(1,4) for b in range(1,4)
+                                                            for c in range(1,4) for d in range(1,4)]
         self.visible_cards = 12
         for i in range(3):
             for j in range(4):
@@ -25,12 +26,26 @@ class Game:
                 self.cards_abcds[i][j] = abcd
                 self.available_abcds.remove(abcd)
         self.players = 1
+        self.left = 0
         self.no_set_votes = [False]*5
+
+    def add_player(self):
+        self.ready = True
+        self.players += 1
+
+    def remove_player(self, player):
+        self.left += 1
+        self.no_set_votes[player] = False
+
+    def no_one_left(self):
+        return self.players <= self.left
+
+    def update_time(self):
+        self.time = time.time()
 
     def cast_vote(self, player):
         self.no_set_votes[player] = True
-        print(self.no_set_votes, all(self.no_set_votes[1:self.players+1]))
-        if all(self.no_set_votes[1:self.players+1]):
+        if self.no_set_votes.count(True) == self.players - self.left:
             if not self.available_abcds:
                 self.end_game()
                 return
@@ -79,10 +94,6 @@ class Game:
         if abcd == "0000" or abcd in self.selected_set: return
         self.selected_ij.append((i,j))
         self.selected_set.append(self.cards_abcds[i][j])
-        print(self.selected_set)
-
-    def connected(self):
-        return self.ready
 
     def winners(self):
         scores = [self.sets[i]-self.penalties[i] for i in range(5)]
@@ -97,6 +108,7 @@ class Game:
         self.attack_just_ended = True
         self.attack_success = self.attack_succeeded()
         if self.attack_success:
+            self.sets[self.attacking_player] += 1
             for i, j in self.selected_ij:
                 self.cards_abcds[i][j] = "0000"
             self.visible_cards -= 3
@@ -112,6 +124,8 @@ class Game:
                     i = 0
                     j += 1
             self.no_set_votes = [False] * 5
+        else:
+            self.penalties[self.attacking_player] += 1
         self.selected_set = []
         self.selected_ij = []
 

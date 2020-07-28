@@ -10,9 +10,11 @@ class Network:
             with open("ip.txt", "r") as f:
                 self.client.connect((f.read(), 5555))
             player_number = self.client.recv(2048*16).decode()
+            assert player_number
             self.__player_number = player_number
-        except socket.error as e:
+        except (AssertionError, socket.error) as e:
             print(e)
+            raise
 
     @property
     def player_number(self):
