@@ -9,28 +9,52 @@ pygame.font.init()
 width = 600
 height = 600
 win = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Set! (Chargement...)")
+pygame.display.set_caption(f"Set! (Chargement {0}%)")
 
 images = {}
-for name in os.listdir("./images"):
-    if name.endswith(".png"):
-        image = pygame.image.load(f"./images/{name}").convert_alpha()
+imgdir = "images"
+if not os.path.isdir(imgdir): imgdir = "../" + imgdir
+for name in os.listdir(imgdir):
+    if name.endswith(".png") and name[:-4].isnumeric():
+        image = pygame.image.load(f"{imgdir}/{name}").convert_alpha()
         rect = image.get_rect()
         image = pygame.transform.scale(image, (rect.w//10, rect.h//10))
         images[name[-8:-4]] = image
-        print(name)
+        pygame.display.set_caption(f"Set! (Chargement {len(images)*100//81}%)")
 
 class CardSlot:
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.abcd = "0000"
-        self.width = 70
-        self.height = 110
+        self.width = 78
+        self.height = 114
 
     def draw(self):
         if self.abcd != "0000":
             win.blit(images[self.abcd], (self.x, self.y))
+
+    def draw_rounded_rectangle(self, win):
+        rad = 5
+        thick = 0
+        rect = pygame.Rect(self.x, self.y, 70, 106)
+        color = (255,150,0)
+        if thick > 0:
+            r = rect.copy()
+            x, r.x = r.x, 0
+            y, r.y = r.y, 0
+            buf = pygame.surface.Surface((rect.width, rect.height)).convert_alpha()
+            buf.fill((0,0,0,0))
+            round_rect(buf, r, rad, color, 0)
+            r = r.inflate(-thick*2, -thick*2)
+            round_rect(buf, r, rad, (0,0,0,0), 0)
+            win.blit(buf, (x,y))
+        else:
+            r  = rect.inflate(-rad * 2, -rad * 2)
+            for corn in (r.topleft, r.topright, r.bottomleft, r.bottomright):
+                pygame.draw.circle(win, color, corn, rad)
+            pygame.draw.rect(win, color, r.inflate(rad*2, 0))
+            pygame.draw.rect(win, color, r.inflate(0, rad*2))
 
     def click(self, pos):
         x, y = pos
@@ -60,6 +84,12 @@ def redrawWindow(game, player):
             remaining_time = round(3. - (game.time - game.attack_time), 1)
             text=f"SET! {remaining_time}"
             message_display(text, 20, xc, yc=500, color=(0, 255,255))
+            for num in game.get_attack_clicks():
+                for i in range(3):
+                    for j in range(6):
+                        card = cards[i][j]
+                        if card.abcd == num:
+                            card.draw_rounded_rectangle(win)
         elif game.attack_just_ended:
             xc = width // 2 - (game.players - 1) * 60 + (game.attacking_player - 1) * 120
             delay = 500
@@ -177,10 +207,10 @@ def menu_screen(code):
 
 _code = 0
 """
-0: Game ended correctly 
+0: Game ended correctly
 1: Player couldn't connect to a game
 2: Player got disconnected while a game had started
-3: Player closed the window so the execution must stop 
+3: Player closed the window so the execution must stop
 """
 while _code != 3:
     _code = menu_screen(_code)
