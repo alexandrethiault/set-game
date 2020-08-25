@@ -1,9 +1,6 @@
 __pycache__/
 .idea/
-ip.txt
-ip2.txt
-ipL.txt
-ipX.txt
+ip*.txt
 compress.py
 *.zip
 *.exe

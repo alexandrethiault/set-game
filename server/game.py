@@ -69,7 +69,7 @@ class Game:
 
     def attempt_attack(self, player):
         if not self.ongoing_attack:
-            self.stop_attack()
+            self.reset_attack()
             self.ongoing_attack = True
             self.attack_just_ended = False
             self.attacking_player = player
@@ -122,10 +122,14 @@ class Game:
         self.selected_ij = []
 
     def reset_attack(self):
+        self.ongoing_attack = False
         self.attack_just_ended = False
         self.attacking_player = 0
         self.attack_time = 0
         self.attack_success = False
+        self.no_set_votes = [False] * 5
+        self.selected_set = []
+        self.selected_ij = []
 
     def winners(self):
         scores = [self.sets[i]-self.penalties[i] for i in range(5)]

@@ -34,4 +34,4 @@ To properly end a game (either because because there are no more cards to add to
 
 By default a game is limited to 4 people. This means if a 5th client tries to connect, they will be sent to a separate game. A potential 6th client will then connect to the 5th client's game.
 
-A game is destroyed when all its clients have left. This means that if 2 clients are playing a game, and player 1 disconnects, and wants to reconnect, they will end up as player 3 in the same game. But if player 2 disconnects before player 1 manages to reconnect, that game would be destroyed so player 1 would join a new game.*
+A game is destroyed when all its clients have left. This means that if 2 clients are playing a game, and player 1 disconnects, and wants to reconnect, they will end up as player 3 in the same game. But if player 2 disconnects before player 1 manages to reconnect, that game would be destroyed so player 1 would join a new game.
