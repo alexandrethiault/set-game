@@ -20,6 +20,7 @@ s.listen(4)
 print("Server started, waiting for connections")
 
 games = {}
+nothing_changed = {}
 id_count = 0
 
 
@@ -36,22 +37,34 @@ def threaded_client(conn, player_number, game_id):
             game = games[game_id]
             if game.ongoing_attack and time.time() - game.attack_time > 3:
                 game.stop_attack()
+                nothing_changed[game_id] = [False]*4
             elif game.attack_just_ended and time.time() - game.attack_time > 5:
                 game.reset_attack()
+                nothing_changed[game_id] = [False]*4
 
             if data == "att":
                 game.attempt_attack(player_number)
+                nothing_changed[game_id] = [False]*4
             elif data == "mor":
                 game.cast_vote(player_number)
+                nothing_changed[game_id] = [False]*4
             elif data == "esc":
                 conn.sendall(pickle.dumps(game))
+                nothing_changed[game_id] = [False]*4
                 break
-            elif data != "get":
+            elif data != "get": # "i,j"
                 if game.ongoing_attack and game.attacking_player == player_number:
                     game.attack_click(data)
+                    nothing_changed[game_id] = [False]*4
 
             game.update_time()
-            conn.sendall(pickle.dumps(game))
+            if not nothing_changed[game_id][player_number-1]:
+                conn.sendall(pickle.dumps(game))
+                nothing_changed[game_id][player_number-1] = True
+            elif game.ongoing_attack:
+                conn.sendall(pickle.dumps(game.time)) # 12 octets
+            else:
+                conn.sendall(b'0') # 1 octet
         except:
             break
 
@@ -61,6 +74,7 @@ def threaded_client(conn, player_number, game_id):
         if game.no_one_left():
             print(f"Closing Game {game_id}")
             del games[game_id]
+            del nothing_changed[game_id]
             conn.close()
             if game_id == id_count // 4:
                 id_count = game_id * 4 + 4
@@ -78,9 +92,11 @@ def main():
         game_id = id_count // 4
         if id_count % 4 == 0:
             games[game_id] = Game(game_id)
+            nothing_changed[game_id] = [False]*4
             print(f"Creating Game {game_id}")
         else:
             games[game_id].add_player()
+            nothing_changed[game_id] = [False]*4
         print(f"Connected to {addr} as Game {game_id} - Player {player_number}")
         id_count += 1
 

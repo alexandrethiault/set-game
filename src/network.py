@@ -20,4 +20,7 @@ class Network:
 
     def send(self, data):
         self.client.send(str.encode(data)) #send data from client to server
-        return pickle.loads(self.client.recv(2048*16)) # return to client an updated version of game
+        try:
+            return pickle.loads(self.client.recv(2048*16)) # return to client an updated version of game
+        except pickle.UnpicklingError:
+            return b'0'

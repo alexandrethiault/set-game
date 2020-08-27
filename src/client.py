@@ -137,7 +137,13 @@ def main():
     while run:
         clock.tick(60)
         try:
-            game = n.send("get")
+            data = n.send("get")
+            if data != b'0':
+                if not isinstance(data, float): # tout : 1250 à 1350 octets
+                    game = data
+                else: # si attaque en cours, float : 12 octets
+                    game.time = data
+            # sinon,  rien ne s'est passé : 1 octet
             """
             game in client.py will always be a copy of the only game that matters, stored
             in server.py. That copy can lag behind the main one and sending an attack can be
@@ -164,7 +170,9 @@ def main():
                         for j in range(6):
                             card = cards[i][j]
                             if card.click(pos) and game.ready:
-                                n.send(f"{i},{j}") # ne marche que si c'est ce client qui attaque
+                                data = n.send(f"{i},{j}") # ne marche que si c'est ce client qui attaque
+                                if data != b'0' and not isinstance(data, float):
+                                    game = data
             if run:
                 redrawWindow(game, player)
         except socket.error as e:
@@ -202,7 +210,7 @@ def menu_screen(code):
                 pygame.display.update()
                 run = False
 
-    pygame.time.delay(500)
+    pygame.time.delay(100)
     return main()
 
 _code = 0
