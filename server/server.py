@@ -2,6 +2,7 @@ import socket
 from _thread import *
 import pickle
 import time
+import datetime
 
 from game import Game
 
@@ -23,6 +24,12 @@ games = {}
 nothing_changed = {}
 id_count = 0
 
+def addlog(string):
+    with open("logs.txt", "a") as f:
+        now = datetime.datetime.now()
+        datestring = f"[{now.year}/{str(now.month+100)[1:]}/{str(now.day+100)[1:]} {str(now.hour+100)[1:]}h{str(now.minute+100)[1:]}m{str(now.second+100)[1:]}s]"
+        f.write(f"{datestring} {string}\n")
+    
 
 def threaded_client(conn, player_number, game_id):
     global id_count
@@ -69,17 +76,20 @@ def threaded_client(conn, player_number, game_id):
             break
 
     print(f"Lost connection to Game {game_id} - Player {player_number}")
+    addlog(f"Lost connection to Game {game_id} - Player {player_number}")
     try:
+        game = games[game_id]
         game.remove_player(player_number)
         if game.no_one_left():
             print(f"Closing Game {game_id}")
+            addlog(f"Closing Game {game_id}")
             del games[game_id]
             del nothing_changed[game_id]
             conn.close()
             if game_id == id_count // 4:
                 id_count = game_id * 4 + 4
-    except (UnboundLocalError, KeyError):
-        pass
+    except KeyError:
+        conn.close()
 
 
 def main():
@@ -87,17 +97,24 @@ def main():
 
     while True:
         conn, addr = s.accept()
-
+        try:
+            assert conn.recv(2048*16).decode() == "Hi!"
+        except:
+            conn.close()
+            addlog(f"Rejected irrelevant connection from {addr}")
+            continue
         player_number = id_count % 4 + 1
         game_id = id_count // 4
         if id_count % 4 == 0:
             games[game_id] = Game(game_id)
             nothing_changed[game_id] = [False]*4
             print(f"Creating Game {game_id}")
+            addlog(f"Creating Game {game_id}")
         else:
             games[game_id].add_player()
             nothing_changed[game_id] = [False]*4
         print(f"Connected to {addr} as Game {game_id} - Player {player_number}")
+        addlog(f"Connected to {addr} as Game {game_id} - Player {player_number}")
         id_count += 1
 
         start_new_thread(threaded_client, (conn, player_number, game_id))

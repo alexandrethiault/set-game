@@ -10,6 +10,7 @@ class Network:
         if not os.path.isfile(ippath): ippath = "../" + ippath
         with open(ippath, "r") as f:
             self.client.connect((f.read(), 5555))
+        self.client.send(str.encode("Hi!")) #discard connections that don't say hi
         player_number = self.client.recv(2048*16).decode()
         assert player_number
         self.__player_number = player_number
